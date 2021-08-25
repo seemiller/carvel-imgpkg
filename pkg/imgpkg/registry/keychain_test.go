@@ -27,6 +27,8 @@ import (
 )
 
 var gcpRegistryURL string
+var gcpRegistryUsername string
+var gcpRegistryPassword string
 
 func TestMain(m *testing.M) {
 	var server *httptest.Server
@@ -387,8 +389,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 
 		authorization, err := auth.Authorization()
 		assert.NoError(t, err)
-		assert.Equal(t, "foo", authorization.Username)
-		assert.Equal(t, "bar", authorization.Password)
+		assert.Equal(t, gcpRegistryUsername, authorization.Username)
+		assert.Equal(t, gcpRegistryPassword, authorization.Password)
 	})
 
 	t.Run("iaas creds > cli user/pass", func(t *testing.T) {
@@ -409,8 +411,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 
 		authorization, err := auth.Authorization()
 		assert.NoError(t, err)
-		assert.Equal(t, "foo", authorization.Username)
-		assert.Equal(t, "bar", authorization.Password)
+		assert.Equal(t, gcpRegistryUsername, authorization.Username)
+		assert.Equal(t, gcpRegistryPassword, authorization.Password)
 	})
 
 	t.Run("cli anon > config.json", func(t *testing.T) {
@@ -449,9 +451,9 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 func registerGCPProvider() (string, *httptest.Server) {
 	registryURL := "imgpkg-testing.kubernetes.carvel"
 	email := "foo@bar.baz"
-	username := "foo"
-	password := "bar" // Fake value for testing.
-	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
+	gcpRegistryUsername = "foo"
+	gcpRegistryPassword = "bar"
+	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", gcpRegistryUsername, gcpRegistryPassword)))
 	sampleDockerConfig := fmt.Sprintf(`{
    "https://%s": {
      "email": %q,
@@ -488,6 +490,7 @@ func registerGCPProvider() (string, *httptest.Server) {
 			Provider: alwaysEnabledProvier{provider},
 			Lifetime: 60 * time.Second,
 		})
+
 	return registryURL, server
 }
 

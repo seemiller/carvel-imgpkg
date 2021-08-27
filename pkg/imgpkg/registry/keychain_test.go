@@ -19,6 +19,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 	"github.com/vdemeester/k8s-pkg-credentialprovider/gcp"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
@@ -29,13 +30,53 @@ import (
 var gcpRegistryURL string
 var gcpRegistryUsername string
 var gcpRegistryPassword string
+var blockingDockerProvider *blockingProvider
+
+// TODO: feature flag - disable iaas auth
 
 func TestMain(m *testing.M) {
 	var server *httptest.Server
 	gcpRegistryURL, server = registerGCPProvider()
 	defer server.Close()
 
+	blockingDockerProvider = registerBlockingProvider()
+
 	os.Exit(m.Run())
+}
+
+func TestAuthProvidedViaGCP(t *testing.T) {
+	t.Run("Should timeout if gcp metadata service is not responsive. See https://github.com/tektoncd/pipeline/issues/1742#issuecomment-565055556", func(t *testing.T) {
+		defer func() {
+			close(blockingDockerProvider.shouldStopBlocking)
+		}()
+
+		require.Eventually(t, func() bool {
+			keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
+
+			resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
+			assert.NoError(t, err)
+
+			_, err = keychain.Resolve(resource)
+			assert.NoError(t, err)
+
+			return true
+		}, 20*time.Second, 1*time.Second)
+	})
+
+	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
+		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
+
+		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
+		assert.NoError(t, err)
+
+		auth, err := keychain.Resolve(resource)
+		assert.NoError(t, err)
+
+		authorization, err := auth.Authorization()
+		assert.NoError(t, err)
+		assert.Equal(t, "foo", authorization.Username)
+		assert.Equal(t, "bar", authorization.Password)
+	})
 }
 
 func TestAuthProvidedViaCLI(t *testing.T) {
@@ -224,23 +265,6 @@ func TestAuthProvidedViaDefaultKeychain(t *testing.T) {
 			Username: "user-config-json",
 			Password: "pass-config-json",
 		}), auth)
-	})
-}
-
-func TestAuthProvidedViaGCP(t *testing.T) {
-	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
-
-		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
-		assert.NoError(t, err)
-
-		auth, err := keychain.Resolve(resource)
-		assert.NoError(t, err)
-
-		authorization, err := auth.Authorization()
-		assert.NoError(t, err)
-		assert.Equal(t, "foo", authorization.Username)
-		assert.Equal(t, "bar", authorization.Password)
 	})
 }
 
@@ -487,21 +511,48 @@ func registerGCPProvider() (string, *httptest.Server) {
 
 	credentialprovider.RegisterCredentialProvider("TEST-google-dockercfg-TEST",
 		&credentialprovider.CachingDockerConfigProvider{
-			Provider: alwaysEnabledProvier{provider},
+			Provider: alwaysEnabledProvider{provider},
 			Lifetime: 60 * time.Second,
 		})
 
 	return registryURL, server
 }
 
-type alwaysEnabledProvier struct {
+func registerBlockingProvider() *blockingProvider {
+	blockingTestProvider := &blockingProvider{
+		shouldStopBlocking: make(chan struct{}),
+	}
+	credentialprovider.RegisterCredentialProvider("TEST-blocking-dockercfg-TEST",
+		&credentialprovider.CachingDockerConfigProvider{
+			Provider: blockingTestProvider,
+		})
+
+	return blockingTestProvider
+}
+
+type alwaysEnabledProvider struct {
 	provider credentialprovider.DockerConfigProvider
 }
 
-func (a alwaysEnabledProvier) Enabled() bool {
+func (a alwaysEnabledProvider) Enabled() bool {
 	return true
 }
 
-func (a alwaysEnabledProvier) Provide(image string) credentialprovider.DockerConfig {
+func (a alwaysEnabledProvider) Provide(image string) credentialprovider.DockerConfig {
 	return a.provider.Provide(image)
+}
+
+type blockingProvider struct {
+	shouldStopBlocking chan struct{}
+}
+
+func (a *blockingProvider) Enabled() bool {
+	select {
+	case <-a.shouldStopBlocking:
+		return true
+	}
+}
+
+func (a blockingProvider) Provide(image string) credentialprovider.DockerConfig {
+	return nil
 }

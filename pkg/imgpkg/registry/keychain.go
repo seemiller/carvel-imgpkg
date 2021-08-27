@@ -22,11 +22,26 @@ type KeychainOpts struct {
 }
 
 func Keychain(keychainOpts KeychainOpts, environFunc func() []string) regauthn.Keychain {
-	k8sKeychain, err := k8schain.NewFromPullSecrets(context.Background(), nil)
-	if err != nil {
-		panic(err.Error())
+	var k8sKeychain regauthn.Keychain
+	var err error
+
+	var ok = make(chan struct{})
+
+	go func() {
+		k8sKeychain, err = k8schain.NewFromPullSecrets(context.Background(), nil)
+		if err != nil {
+			panic(err.Error())
+		}
+		close(ok)
+	}()
+
+	timeout := time.After(15 * time.Second)
+	select {
+	case <-ok:
+		return regauthn.NewMultiKeychain(&envKeychain{environFunc: environFunc}, k8sKeychain, customRegistryKeychain{opts: keychainOpts})
+	case <-timeout:
+		return regauthn.NewMultiKeychain(&envKeychain{environFunc: environFunc}, customRegistryKeychain{opts: keychainOpts})
 	}
-	return regauthn.NewMultiKeychain(&envKeychain{environFunc: environFunc}, k8sKeychain, customRegistryKeychain{opts: keychainOpts})
 }
 
 var _ regauthn.Keychain = &envKeychain{}

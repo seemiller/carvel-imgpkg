@@ -32,8 +32,6 @@ var gcpRegistryUsername string
 var gcpRegistryPassword string
 var blockingDockerProvider *blockingProvider
 
-// TODO: feature flag - disable iaas auth
-
 func TestMain(m *testing.M) {
 	var server *httptest.Server
 	gcpRegistryURL, server = registerGCPProvider()

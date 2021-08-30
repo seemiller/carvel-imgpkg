@@ -18,6 +18,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry"
+	"github.com/k14s/imgpkg/pkg/imgpkg/registry/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
@@ -51,7 +52,7 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 		}()
 
 		require.Eventually(t, func() bool {
-			keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
+			keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
 
 			resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
 			assert.NoError(t, err)
@@ -64,7 +65,7 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 	})
 
 	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
 
 		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
 		assert.NoError(t, err)
@@ -80,7 +81,7 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 }
 
 func TestAuthProvidedViaCLI(t *testing.T) {
-	cliOptions := registry.KeychainOpts{}
+	cliOptions := auth.KeychainOpts{}
 
 	t.Run("When username and password is provided", func(t *testing.T) {
 		opts := cliOptions
@@ -137,7 +138,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -156,7 +157,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -174,7 +175,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -197,7 +198,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME_1=localhost:1111",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:1111/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -221,7 +222,7 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"SOMETHING_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return envVars })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -254,7 +255,7 @@ func TestAuthProvidedViaDefaultKeychain(t *testing.T) {
 }`), os.ModePerm)
 		assert.NoError(t, err)
 
-		keychain := registry.Keychain(registry.KeychainOpts{}, func() []string { return nil })
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -270,7 +271,7 @@ func TestAuthProvidedViaDefaultKeychain(t *testing.T) {
 
 func TestOrderingOfAuthOpts(t *testing.T) {
 	t.Run("When no auth are provided, use anon", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{}
+		cliOptions := auth.KeychainOpts{}
 
 		keychain := registry.Keychain(cliOptions, func() []string { return nil })
 
@@ -284,7 +285,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("env creds > iaas", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{}
+		cliOptions := auth.KeychainOpts{}
 
 		envVars := []string{
 			"IMGPKG_REGISTRY_USERNAME=user-env",
@@ -307,7 +308,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("env creds > cli user/pass", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Username: "user-cli",
 			Password: "pass-cli",
 		}
@@ -333,7 +334,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("env creds > cli anon", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Anon: true,
 		}
 
@@ -374,7 +375,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 }`), os.ModePerm)
 		assert.NoError(t, err)
 
-		cliOptions := registry.KeychainOpts{}
+		cliOptions := auth.KeychainOpts{}
 
 		envVars := []string{
 			"IMGPKG_REGISTRY_USERNAME=user-env",
@@ -397,7 +398,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("iaas creds > cli anon", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Anon: true,
 		}
 
@@ -418,7 +419,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("iaas creds > cli user/pass", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Username: "user-cli",
 			Password: "pass-cli",
 		}
@@ -440,7 +441,7 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	})
 
 	t.Run("cli anon > config.json", func(t *testing.T) {
-		cliOptions := registry.KeychainOpts{
+		cliOptions := auth.KeychainOpts{
 			Anon: true,
 		}
 

@@ -40,13 +40,28 @@ func TestMain(m *testing.M) {
 	gcpRegistryURL, server = registerGCPProvider()
 	defer server.Close()
 
-	blockingDockerProvider = registerBlockingProvider()
-
 	os.Exit(m.Run())
 }
 
 func TestAuthProvidedViaGCP(t *testing.T) {
+	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
+		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
+
+		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
+		assert.NoError(t, err)
+
+		auth, err := keychain.Resolve(resource)
+		assert.NoError(t, err)
+
+		authorization, err := auth.Authorization()
+		assert.NoError(t, err)
+		assert.Equal(t, "foo", authorization.Username)
+		assert.Equal(t, "bar", authorization.Password)
+	})
+
 	t.Run("Should timeout if gcp metadata service is not responsive. See https://github.com/tektoncd/pipeline/issues/1742#issuecomment-565055556", func(t *testing.T) {
+		blockingDockerProvider = registerBlockingProvider()
+
 		defer func() {
 			close(blockingDockerProvider.shouldStopBlocking)
 		}()
@@ -62,21 +77,6 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 
 			return true
 		}, 20*time.Second, 1*time.Second)
-	})
-
-	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
-		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
-
-		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
-		assert.NoError(t, err)
-
-		auth, err := keychain.Resolve(resource)
-		assert.NoError(t, err)
-
-		authorization, err := auth.Authorization()
-		assert.NoError(t, err)
-		assert.Equal(t, "foo", authorization.Username)
-		assert.Equal(t, "bar", authorization.Password)
 	})
 }
 
@@ -555,5 +555,5 @@ func (a *blockingProvider) Enabled() bool {
 }
 
 func (a blockingProvider) Provide(image string) credentialprovider.DockerConfig {
-	return nil
+	return credentialprovider.DockerConfig{}
 }

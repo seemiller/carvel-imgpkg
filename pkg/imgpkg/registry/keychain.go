@@ -3,11 +3,9 @@
 package registry
 
 import (
-	"context"
 	"time"
 
 	regauthn "github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/k14s/imgpkg/pkg/imgpkg/registry/auth"
 )
 
@@ -16,23 +14,18 @@ import (
 // keychains that contain credentials for 'any' target. i.e. env keychain takes precedence over the custom keychain.
 // Since env keychain contains credentials per HOSTNAME, and custom keychain doesn't.
 func Keychain(keychainOpts auth.KeychainOpts, environFunc func() []string) regauthn.Keychain {
-	var k8sKeychain regauthn.Keychain
-	var err error
-
+	var iaasKeychain regauthn.Keychain
 	var ok = make(chan struct{})
 
 	go func() {
-		k8sKeychain, err = k8schain.NewFromPullSecrets(context.Background(), nil)
-		if err != nil {
-			panic(err.Error())
-		}
+		iaasKeychain = auth.NewIaasKeychain()
 		close(ok)
 	}()
 
 	timeout := time.After(15 * time.Second)
 	select {
 	case <-ok:
-		return regauthn.NewMultiKeychain(&auth.EnvKeychain{EnvironFunc: environFunc}, k8sKeychain, auth.CustomRegistryKeychain{Opts: keychainOpts})
+		return regauthn.NewMultiKeychain(&auth.EnvKeychain{EnvironFunc: environFunc}, iaasKeychain, auth.CustomRegistryKeychain{Opts: keychainOpts})
 	case <-timeout:
 		return regauthn.NewMultiKeychain(&auth.EnvKeychain{EnvironFunc: environFunc}, auth.CustomRegistryKeychain{Opts: keychainOpts})
 	}

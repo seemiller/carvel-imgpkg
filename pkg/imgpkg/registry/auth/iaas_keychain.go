@@ -56,10 +56,7 @@ func NewIaasKeychain(environFunc func() []string) (authn.Keychain, error) {
 			keyring: keyring,
 		}, nil
 	case <-time.After(15 * time.Second):
-		//TODO: add logging that timeout occurred
-		return &keychain{
-			keyring: noOpDockerKeyring{},
-		}, nil
+		return nil, fmt.Errorf("Timeout occurred trying to enable iaas provider")
 	}
 }
 

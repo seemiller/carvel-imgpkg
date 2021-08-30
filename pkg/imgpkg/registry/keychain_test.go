@@ -42,7 +42,8 @@ func TestMain(m *testing.M) {
 
 func TestAuthProvidedViaGCP(t *testing.T) {
 	t.Run("Should auth via GCP metadata service", func(t *testing.T) {
-		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
+		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
 		assert.NoError(t, err)
@@ -61,7 +62,8 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 			"IMGPKG_ENABLE_IAAS_AUTH=false",
 		}
 
-		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
 		assert.NoError(t, err)
@@ -83,13 +85,10 @@ func TestAuthProvidedViaGCP(t *testing.T) {
 		}()
 
 		require.Eventually(t, func() bool {
-			keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
-
-			resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
-			assert.NoError(t, err)
-
-			_, err = keychain.Resolve(resource)
-			assert.NoError(t, err)
+			_, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
+			if assert.Error(t, err) {
+				assert.Equal(t, "Timeout occurred trying to enable iaas provider", err.Error())
+			}
 
 			return true
 		}, 20*time.Second, 1*time.Second)
@@ -103,7 +102,8 @@ func TestAuthProvidedViaCLI(t *testing.T) {
 		opts := cliOptions
 		opts.Username = "user"
 		opts.Password = "pass"
-		keychain := registry.Keychain(opts, func() []string { return nil })
+		keychain, err := registry.Keychain(opts, func() []string { return nil })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
 		assert.NoError(t, err)
@@ -119,7 +119,8 @@ func TestAuthProvidedViaCLI(t *testing.T) {
 	t.Run("When anon is provided", func(t *testing.T) {
 		opts := cliOptions
 		opts.Anon = true
-		keychain := registry.Keychain(opts, func() []string { return nil })
+		keychain, err := registry.Keychain(opts, func() []string { return nil })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
 		assert.NoError(t, err)
@@ -134,7 +135,8 @@ func TestAuthProvidedViaCLI(t *testing.T) {
 		opts := cliOptions
 		opts.Token = "TOKEN"
 
-		keychain := registry.Keychain(opts, func() []string { return nil })
+		keychain, err := registry.Keychain(opts, func() []string { return nil })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
 		assert.NoError(t, err)
@@ -154,7 +156,8 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		require.NoError(t, err)
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -173,7 +176,8 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		require.NoError(t, err)
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -191,7 +195,8 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		require.NoError(t, err)
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -214,7 +219,8 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME_1=localhost:1111",
 		}
 
-		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		require.NoError(t, err)
 		resource, err := name.NewRepository("localhost:1111/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -238,7 +244,8 @@ func TestAuthProvidedViaEnvVars(t *testing.T) {
 			"SOMETHING_REGISTRY_HOSTNAME=localhost:9999",
 		}
 
-		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return envVars })
+		require.NoError(t, err)
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -271,7 +278,8 @@ func TestAuthProvidedViaDefaultKeychain(t *testing.T) {
 }`), os.ModePerm)
 		assert.NoError(t, err)
 
-		keychain := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
+		keychain, err := registry.Keychain(auth.KeychainOpts{}, func() []string { return nil })
+		require.NoError(t, err)
 		resource, err := name.NewRepository("localhost:9999/imgpkg_test")
 		assert.NoError(t, err)
 
@@ -289,7 +297,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 	t.Run("When no auth are provided, use anon", func(t *testing.T) {
 		cliOptions := auth.KeychainOpts{}
 
-		keychain := registry.Keychain(cliOptions, func() []string { return nil })
+		keychain, err := registry.Keychain(cliOptions, func() []string { return nil })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
 		assert.NoError(t, err)
@@ -309,7 +318,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 			fmt.Sprintf("IMGPKG_REGISTRY_HOSTNAME=%s", gcpRegistryURL),
 		}
 
-		keychain := registry.Keychain(cliOptions, func() []string { return envVars })
+		keychain, err := registry.Keychain(cliOptions, func() []string { return envVars })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
 		assert.NoError(t, err)
@@ -335,7 +345,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=some.fake.registry",
 		}
 
-		keychain := registry.Keychain(cliOptions, func() []string { return envVars })
+		keychain, err := registry.Keychain(cliOptions, func() []string { return envVars })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
 		assert.NoError(t, err)
@@ -360,7 +371,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=some.fake.registry",
 		}
 
-		keychain := registry.Keychain(cliOptions, func() []string { return envVars })
+		keychain, err := registry.Keychain(cliOptions, func() []string { return envVars })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
 		assert.NoError(t, err)
@@ -399,7 +411,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 			"IMGPKG_REGISTRY_HOSTNAME=some.fake.registry",
 		}
 
-		keychain := registry.Keychain(cliOptions, func() []string { return envVars })
+		keychain, err := registry.Keychain(cliOptions, func() []string { return envVars })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
 		assert.NoError(t, err)
@@ -420,7 +433,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 
 		envVars := []string{}
 
-		keychain := registry.Keychain(cliOptions, func() []string { return envVars })
+		keychain, err := registry.Keychain(cliOptions, func() []string { return envVars })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
 		assert.NoError(t, err)
@@ -442,7 +456,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 
 		envVars := []string{}
 
-		keychain := registry.Keychain(cliOptions, func() []string { return envVars })
+		keychain, err := registry.Keychain(cliOptions, func() []string { return envVars })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository(fmt.Sprintf("%s/imgpkg_test", gcpRegistryURL))
 		assert.NoError(t, err)
@@ -477,7 +492,8 @@ func TestOrderingOfAuthOpts(t *testing.T) {
 }`), os.ModePerm)
 		assert.NoError(t, err)
 
-		keychain := registry.Keychain(cliOptions, func() []string { return nil })
+		keychain, err := registry.Keychain(cliOptions, func() []string { return nil })
+		require.NoError(t, err)
 
 		resource, err := name.NewRepository("some.fake.registry/imgpkg_test")
 		assert.NoError(t, err)

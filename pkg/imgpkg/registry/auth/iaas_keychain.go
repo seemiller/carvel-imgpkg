@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/k14s/imgpkg/pkg/imgpkg/util"
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 )
 
@@ -71,10 +72,24 @@ type lazyProvider struct {
 
 // Authorization implements Authenticator.
 func (lp lazyProvider) Authorization() (*authn.AuthConfig, error) {
-	creds, found := lp.kc.keyring.Lookup(lp.image)
-	if !found || len(creds) < 1 {
-		return nil, fmt.Errorf("keychain returned no credentials for %q", lp.image)
+	//TODO: test this retry logic <- should we have this? not sure...
+
+	var creds []credentialprovider.AuthConfig
+	var found bool
+
+	err := util.Retry(func() error {
+		creds, found = lp.kc.keyring.Lookup(lp.image)
+		if !found || len(creds) < 1 {
+			return fmt.Errorf("keychain returned no credentials for %q", lp.image)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
+
 	authConfig := creds[0]
 	return &authn.AuthConfig{
 		Username:      authConfig.Username,
